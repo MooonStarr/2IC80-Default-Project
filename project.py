@@ -59,8 +59,11 @@ class DefaultTool:
     # DNS spoofing  
     #Step1: Create a queue to intercept all packets from DNS
     def nfqueue():
+        
+        os.system(
+            f'iptables -I FORWARD -j NFQUEUE --queue-num {self.queueNum}')
         #IP table rule to sniff DNS packets
-        self.queue.bind(self.queueNum, self.intercept_packets)
+        self.queue.bind(self.queueNum, self.intercept_packets)        
         
         try:
             self.queue.run()

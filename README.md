@@ -9,7 +9,7 @@ This is a simple command-line tool to run ARP poisoning, DNS spoofing, and SSL s
 
 ## Steps to run
 ```
-sudo python attacker.py
+sudo python attacker.py -i enp0s8 -v 10.0.2.4 -s 10.0.2.1 -d my.org -f 10.0.2.3
 ```
 
 ### Other commands

